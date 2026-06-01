@@ -1,0 +1,49 @@
+# Inbox -> README automation.
+#
+# Paste GitHub repo URL(s) into an Issue and label it `inbox`. This workflow
+# runs daily (and on demand), batch-processes every open `inbox` Issue, asks
+# GitHub Models to categorize each tool, writes entries into README.md, commits
+# to main, then closes the Issue (or relabels it `needs-category` when the model
+# thinks no existing category fits).
+#
+# ONE-TIME SETUP (manual):
+#   1. Enable GitHub Models for this repository.
+#   2. Create labels: `inbox`, `done`, `needs-category`.
+# No external secrets are required — categorization uses the built-in GITHUB_TOKEN.
+
+name: inbox-to-readme
+
+on:
+  schedule:
+    - cron: "0 18 * * *"   # daily 18:00 UTC (~02:00 Asia/Taipei)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write          # commit README + push
+  issues: write            # comment, relabel, close
+  models: read             # GitHub Models inference
+
+concurrency:
+  group: inbox-to-readme
+  cancel-in-progress: false
+
+jobs:
+  process-inbox:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Process inbox issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python .github/scripts/inbox_to_readme.py
