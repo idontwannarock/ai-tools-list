@@ -17,6 +17,7 @@ import re
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 REPO = os.environ["GITHUB_REPOSITORY"]           # "owner/repo"
@@ -44,8 +45,15 @@ TOC_HEADING = "目錄"                              # the table-of-contents, not
 def _request(url, *, method="GET", headers=None, payload=None):
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(url, data=data, method=method, headers=headers or {})
-    with urllib.request.urlopen(req) as resp:
-        body = resp.read().decode()
+    try:
+        with urllib.request.urlopen(req) as resp:
+            body = resp.read().decode()
+    except urllib.error.HTTPError as exc:
+        # Surface GitHub's error body (the real reason) but keep the HTTPError
+        # type so callers can still branch on exc.code (e.g. 404 metadata).
+        detail = exc.read().decode(errors="replace")
+        sys.stderr.write(f"{method} {url} -> HTTP {exc.code}: {detail[:500]}\n")
+        raise
     return json.loads(body) if body else None
 
 
@@ -67,6 +75,8 @@ def models_chat(messages):
     }
     payload = {"model": MODEL, "messages": messages, "temperature": 0}
     resp = _request(MODELS_API, method="POST", headers=headers, payload=payload)
+    if not resp or not resp.get("choices"):
+        raise ValueError(f"unexpected Models response: {resp}")
     return resp["choices"][0]["message"]["content"]
 
 
@@ -83,7 +93,16 @@ def canonical_url(owner, repo):
 
 
 def list_inbox_issues():
-    issues = gh_api(f"/repos/{REPO}/issues?state=open&labels={INBOX_LABEL}&per_page=100")
+    label = urllib.parse.quote(INBOX_LABEL, safe="")
+    issues, page = [], 1
+    while True:
+        batch = gh_api(
+            f"/repos/{REPO}/issues?state=open&labels={label}&per_page=100&page={page}"
+        )
+        issues.extend(batch)
+        if len(batch) < 100:        # last page reached
+            break
+        page += 1
     # /issues also returns PRs; drop them.
     return [i for i in issues if "pull_request" not in i]
 
@@ -130,8 +149,8 @@ def fetch_metadata(owner, repo):
 
 
 def format_entry(meta, url):
-    desc = meta["description"] or "No description."
-    if desc and desc[-1] not in ".!?":
+    desc = meta["description"] or "No description"
+    if desc[-1] not in ".!?":
         desc += "."
     lang = f" `{meta['language']}`" if meta["language"] else ""
     return f"- **{meta['name']}** — {desc}{lang}\n  <br/>{url}"
@@ -250,6 +269,9 @@ def git_commit(added):
     body = "\n".join(f"- {name}" for name in added)
     message = f"docs: add {len(added)} tool(s) from inbox — {summary}\n\n{body}"
     subprocess.run(["git", "commit", "-m", message], check=True)
+    # Rebase onto any concurrent push to main before pushing (requires full
+    # history — the workflow checks out with fetch-depth: 0).
+    subprocess.run(["git", "pull", "--rebase", "origin", "main"], check=True)
     subprocess.run(["git", "push"], check=True)
 
 
@@ -262,7 +284,8 @@ def comment(number, text):
 
 def relabel(number, remove, add):
     try:
-        gh_api(f"/repos/{REPO}/issues/{number}/labels/{remove}", method="DELETE")
+        seg = urllib.parse.quote(remove, safe="")
+        gh_api(f"/repos/{REPO}/issues/{number}/labels/{seg}", method="DELETE")
     except urllib.error.HTTPError as exc:
         if exc.code != 404:
             raise
