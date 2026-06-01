@@ -29,7 +29,7 @@ DONE_LABEL = "done"
 NEEDS_LABEL = "needs-category"
 
 BATCH_SIZE = 20                                  # net-new tools per model request
-MODEL = "openai/gpt-4o"                          # tunable; any GitHub Models id
+MODEL = "openai/gpt-4o-mini"                     # tunable; any GitHub Models id
 GH_API = "https://api.github.com"
 MODELS_API = "https://models.github.ai/inference/chat/completions"
 
