@@ -126,6 +126,8 @@ Persistent memory across sessions + active session context optimization.
   <br/>https://github.com/yvgude/lean-ctx
 - **cozempic** — Context cleaning for Claude Code; prune bloated sessions, protect Agent Teams from context loss, tiered auto-guard. `Python`
   <br/>https://github.com/Ruya-AI/cozempic
+- **Remio** — Local-first AI memory and personal knowledge-base client; its CLI and agent skill let agents query indexed files, webpages, recordings, emails, messages, images, and notes instead of repeatedly scanning folders or loading whole documents into prompts. Requires the Remio desktop app/client.
+  <br/>https://remio.ai/
 
 ## Vector Search / RAG Infrastructure
 
