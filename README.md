@@ -90,6 +90,8 @@
 
 ## MCP Servers / Tools
 
+- **Agent QA** — Application-QA harness and MCP server for task-based web and mobile testing; source-available under FSL-1.1-ALv2 (not OSI open source; each release converts to Apache-2.0 after two years), with separately configured provider costs possible. `TypeScript`
+  <br/>https://github.com/vostride/agent-qa
 - **mercury-mcp** — Cross-architecture LLM internal observation database (23 models, 13 architecture families) exposed as MCP tools for any AI coding agent. `Python`
   <br/>https://github.com/norika1207-lab/mercury-mcp
 
